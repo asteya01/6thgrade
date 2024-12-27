@@ -1,24 +1,52 @@
 #include <stdio.h>
-#include <unistd.h> // For usleep
-#include <stdlib.h> // For system()
+#include <time.h>
+#include <unistd.h>
+
+#define NANOSECONDS_PER_SECOND 1000000000L
 
 int main() {
-    // Metronome settings
-    int bpm = 80;                 // Beats per minute
-    int beat_interval_ms = 60000 / bpm; // Interval in milliseconds
+    const int bpm = 60; // Beats per minute
+    const long interval_ns = NANOSECONDS_PER_SECOND / (bpm / 60); // Nanoseconds per beat
 
-    printf("Metronome started at %d BPM. Press Ctrl+C to stop.\n", bpm);
+    struct timespec next_beat_time;
 
-    // Ensure beep is available
-    if (system("which beep > /dev/null 2>&1") != 0) {
-        printf("Error: 'beep' command not found. Install it using: sudo apt install beep\n");
-        return 1;
-    }
+    // Get the current time as the starting point
+    clock_gettime(CLOCK_MONOTONIC, &next_beat_time);
+
+    printf("Metronome: 60 BPM\n");
+    printf("Press Ctrl+C to stop.\n");
 
     while (1) {
-        //system("beep -f 440 -l 100"); // 440Hz frequency, 100ms duration
-        system("play -n synth 0.1 sine 440");
-        usleep(beat_interval_ms * 1000); // Convert ms to microseconds and sleep
+        // Produce the beep sound
+        printf("\a"); // Generates the beep sound
+        fflush(stdout);
+
+        // Increment the next beat time by the interval
+        next_beat_time.tv_nsec += interval_ns;
+
+        // Normalize the time if nanoseconds overflow
+        if (next_beat_time.tv_nsec >= NANOSECONDS_PER_SECOND) {
+            next_beat_time.tv_nsec -= NANOSECONDS_PER_SECOND;
+            next_beat_time.tv_sec++;
+        }
+
+        // Sleep until the next beat
+        struct timespec now;
+        clock_gettime(CLOCK_MONOTONIC, &now);
+
+        long sleep_time_sec = next_beat_time.tv_sec - now.tv_sec;
+        long sleep_time_ns = next_beat_time.tv_nsec - now.tv_nsec;
+
+        if (sleep_time_ns < 0) {
+            sleep_time_sec--;
+            sleep_time_ns += NANOSECONDS_PER_SECOND;
+        }
+
+        // Only sleep if we are ahead of the beat
+        if (sleep_time_sec > 0 || (sleep_time_sec == 0 && sleep_time_ns > 0)) {
+            struct timespec sleep_time = {sleep_time_sec, sleep_time_ns};
+            nanosleep(&sleep_time, NULL);
+        }
     }
 
     return 0;
