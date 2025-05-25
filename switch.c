@@ -2,6 +2,7 @@
 
 int main()  /* count digits, white space, others*/
 {
+    printf("Press Ctrl+D to stop.\n");
     int c, i, nwhite, nother, ndigit[10];
 
     nwhite = nother = 0;
